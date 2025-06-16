@@ -1,97 +1,89 @@
-/* General App container to ensure full height and centering */
 .App {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh; /* Ensure it takes full viewport height */
-  background-color: #f0f2f5; /* Light grey background */
-  font-family: 'Inter', sans-serif; /* Using Inter as specified, or a good sans-serif fallback */
+  min-height: 100vh; 
+  background-color: #f0f2f5; 
+  font-family: 'Inter', sans-serif; 
   color: #333;
 }
-
-/* Main chat container styling */
 .chat-container {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 600px; /* Max width for desktop views */
-  height: 90vh; /* A bit less than full height to show background */
-  max-height: 800px; /* Cap max height */
+  max-width: 600px; 
+  height: 90vh; 
+  max-height: 800px;
   border: 1px solid #e0e0e0;
-  border-radius: 12px; /* Slightly more rounded corners */
-  overflow: hidden; /* Hide overflow content */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-  background-color: #fff; /* White background for the chat box */
+  border-radius: 12px; 
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); 
+  background-color: #fff; 
 }
 
-/* Messages display area */
 .messages-display {
-  flex-grow: 1; /* Takes up all available space */
+  flex-grow: 1; 
   padding: 20px;
-  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-y: auto; 
   display: flex;
   flex-direction: column;
-  gap: 12px; /* More space between messages */
-  background-color: #fdfdfd; /* Very light background for messages */
+  gap: 12px;
+  background-color: #fdfdfd;
 }
 
-/* Individual message bubble styling */
 .message {
-  padding: 12px 18px; /* More padding */
-  border-radius: 22px; /* More rounded */
-  max-width: 80%; /* Slightly wider messages */
-  word-wrap: break-word; /* Ensure text wraps */
-  line-height: 1.4; /* Better readability */
+  padding: 12px 18px; 
+  border-radius: 22px; 
+  max-width: 80%; 
+  word-wrap: break-word; 
+  line-height: 1.4; 
   font-size: 15px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Very subtle shadow for messages */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); 
 }
 
-/* Styling for user messages (sent by the current user) */
 .message.user {
-  align-self: flex-end; /* Align to the right */
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); /* Blue gradient */
+  align-self: flex-end; 
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); 
   color: white;
-  border-bottom-right-radius: 6px; /* Slightly less rounded on one corner */
+  border-bottom-right-radius: 6px; 
 }
 
-/* Styling for assistant messages (received from the AI) */
 .message.assistant {
-  align-self: flex-start; /* Align to the left */
-  background-color: #e9ecef; /* Light grey */
-  color: #343a40; /* Darker text */
-  border-bottom-left-radius: 6px; /* Slightly less rounded on one corner */
+  align-self: flex-start;
+  background-color: #e9ecef;
+  color: #343a40; 
+  border-bottom-left-radius: 6px; 
 }
 
-/* Input and send button area */
-.message-input { /* <-- THIS CLASS NAME IS NOW CORRECTED */
+.message-input {
   display: flex;
-  padding: 15px 20px; /* Consistent padding */
-  border-top: 1px solid #e0e0e0; /* Separator line */
+  padding: 15px 20px;
+  border-top: 1px solid #e0e0e0; 
   background-color: #fff;
-  gap: 10px; /* Space between input and button */
+  gap: 10px; 
 }
 
 .message-input input {
-  flex-grow: 1; /* Input takes most available width */
+  flex-grow: 1;
   padding: 12px 18px;
   border: 1px solid #ced4da;
-  border-radius: 25px; /* Fully rounded input */
+  border-radius: 25px; 
   font-size: 16px;
-  outline: none; /* Remove default outline */
+  outline: none; 
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .message-input input:focus {
-  border-color: #007bff; /* Highlight on focus */
+  border-color: #007bff; 
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
 .message-input button {
   padding: 12px 25px;
-  background: linear-gradient(135deg, #28a745 0%, #218838 100%); /* Green gradient */
+  background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
   color: white;
   border: none;
-  border-radius: 25px; /* Fully rounded button */
+  border-radius: 25px; 
   cursor: pointer;
   font-size: 16px;
   font-weight: bold;
@@ -101,28 +93,27 @@
 
 .message-input button:hover {
   background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
-  transform: translateY(-1px); /* Slight lift effect */
+  transform: translateY(-1px);
 }
 
 .message-input button:active {
-  transform: translateY(0); /* Press effect */
+  transform: translateY(0); 
   box-shadow: none;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .chat-container {
-    height: 100vh; /* Full height on smaller screens */
-    border-radius: 0; /* No border-radius on full screen mobile */
-    box-shadow: none; /* No shadow on full screen mobile */
+    height: 100vh; 
+    border-radius: 0; 
+    box-shadow: none; 
   }
 
   .message {
-    max-width: 90%; /* Wider messages on smaller screens */
+    max-width: 90%; 
   }
 }
 
-/* File Upload Area */
 .file-upload-area {
   padding: 15px 20px;
   border-top: 1px solid #e0e0e0;
@@ -132,16 +123,16 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  position: relative; /* For label positioning */
-  min-height: 80px; /* Ensure it's visible */
+  position: relative; 
+  min-height: 80px; 
   justify-content: center;
   align-items: center;
 }
 
 .file-upload-area.dragging {
-  background-color: #e6f7ff; /* Lighter blue when dragging */
-  border: 2px dashed #007bff; /* Dashed border for drag feedback */
-  border-radius: 12px; /* Match container */
+  background-color: #e6f7ff;
+  border: 2px dashed #007bff;
+  border-radius: 12px;
 }
 
 .file-upload-label {
@@ -198,7 +189,6 @@
   color: #333;
 }
 
-/* Add this anywhere in App.css, perhaps near .message */
 .message.loading {
   background-color: #f0f0f0;
   color: #555;

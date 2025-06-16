@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './App.css'; // Keep existing CSS for general layout/overrides
+import './App.css';
 
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [isDragging, setIsDragging] = useState(false); // Re-introduced for drag-and-drop
+  const [isDragging, setIsDragging] = useState(false);
   const [uploadedFileRefs, setUploadedFileRefs] = useState([]);
   const [isFileUploading, setIsFileUploading] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
 
-  const fileInputRef = useRef(null); // Ref for the hidden file input
-
-  // Auto-scrolling to the bottom of the chat
+  const fileInputRef = useRef(null); 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -29,7 +27,6 @@ function App() {
     );
 
     if (allowedFiles.length > 0) {
-      // Add new files to existing selected files (for display)
       setSelectedFiles(prevFiles => {
         const newFiles = [...prevFiles];
         allowedFiles.forEach(file => {
@@ -65,7 +62,6 @@ function App() {
       const data = await response.json();
       if (data.fileRefs && Array.isArray(data.fileRefs)) {
         setUploadedFileRefs(prevRefs => [...prevRefs, ...data.fileRefs]);
-        // Clear the actual file input's value after successful upload
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -82,24 +78,19 @@ function App() {
   };
 
   const handleFileSelect = (event) => {
-    // Use event.target.files directly, as we're managing selectedFiles separately now
     addFiles(Array.from(event.target.files));
   };
 
   const handleRemoveFile = (indexToRemove) => {
     setSelectedFiles(prevFiles => {
       const newSelectedFiles = prevFiles.filter((_, index) => index !== indexToRemove);
-      // Also remove the corresponding uploadedFileRefs
       setUploadedFileRefs(newUploadedFileRefs => newUploadedFileRefs.filter((ref, index) => {
-        // Find the ref that matches the removed file's original name and ID (if possible)
-        // This is a simplistic match; for robustness, match by file_id from backend
         return !prevFiles[indexToRemove] || ref.name !== prevFiles[indexToRemove].name;
       }));
       return newSelectedFiles;
     });
   };
 
-  // Drag and Drop Handlers (re-enabled)
   const handleDragOver = (event) => {
     event.preventDefault();
     setIsDragging(true);
@@ -131,7 +122,7 @@ function App() {
     setMessages(updatedMessagesAfterUser);
 
     setInput('');
-    setSelectedFiles([]); // Clear selected file chips from UI after sending message
+    setSelectedFiles([]);
 
     const payload = {};
     const conversationHistory = updatedMessagesAfterUser.map(msg => {
@@ -225,7 +216,7 @@ function App() {
         return [...prevMessages, { sender: 'assistant', text: `Oops! Something went wrong: ${error.message}` }];
       });
     } finally {
-      setUploadedFileRefs([]); // Clear file refs after sending, regardless of success/fail
+      setUploadedFileRefs([]); 
       setIsResponding(false);
     }
   };
