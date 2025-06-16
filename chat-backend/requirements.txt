@@ -1,0 +1,6 @@
+azure-functions
+openai
+PyMuPDF
+python-docx
+Pillow
+pytesseract

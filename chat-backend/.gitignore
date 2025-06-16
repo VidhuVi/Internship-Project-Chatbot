@@ -1,0 +1,30 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python compiled bytecode
+__pycache__/
+*.pyc
+
+# Azure Functions specific files
+.python_packages/  # Used by Azure Functions deployment for dependencies
+.funcignore        # This file specifies what Azure Functions deployment should ignore.
+local.settings.json # CRITICAL: Contains sensitive settings like API keys. DO NOT COMMIT!
+
+# Editor-specific files (e.g., VS Code)
+.vscode/
+# If you want to commit specific VS Code config files, un-comment them:
+# !.vscode/extensions.json
+# !.vscode/launch.json
+# !.vscode/settings.json
+
+# Logs
+*.log
+
+# Other temporary files
+*.tmp
+*.bak
+
+
+local.settings.json
