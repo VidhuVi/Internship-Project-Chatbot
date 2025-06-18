@@ -5,15 +5,17 @@ This project implements a conversational AI chatbot with the ability to upload a
 ## Features
 
 - **Conversational Chat Interface:** A familiar ChatGPT-style UI for natural interactions.
-- **Document Upload:** Supports uploading single or multiple PDF and DOCX files.
+- **Document Upload:** Supports uploading single or multiple PDF and DOCX files with drag-and-drop or file picker.
 - **Smart Document Processing:**
   - Extracts text from PDF and DOCX files.
   - Performs **OCR (Optical Character Recognition)** on images embedded within documents or scanned PDF pages to extract text.
   - **Intelligent Document Chunking:** Breaks down large documents into smaller, manageable chunks.
   - **Contextual Retrieval:** Employs a basic keyword-based retrieval mechanism to select the most relevant document chunks based on the user's query, ensuring only pertinent information is sent to the AI.
-- **Azure OpenAI Integration:** Uses Azure OpenAI's `chat/completions` API for AI responses.
-- **Streaming Responses:** Provides a token-by-token (word-by-word) display of AI responses for a dynamic, real-time user experience.
-- **Error Handling:** Gracefully handles file processing and API errors.
+  - **Asynchronous File Processing:** All heavy file I/O and OCR operations are offloaded to a thread pool, ensuring the backend remains responsive.
+- **True Streaming Responses:** Provides a token-by-token (word-by-word) display of AI responses for a dynamic, real-time user experience using Server-Sent Events (SSE). A subtle, artificial delay is introduced on the frontend to enhance the visual effect of streaming.
+- **Persistent File Context (Session-based):** Uploaded files' extracted content remains available for all subsequent queries within the same backend session, allowing for continuous conversation referencing multiple documents.
+- **Intelligent Prompt Handling:** User queries are automatically cleaned to remove file attachment references, preventing the AI from mistakenly thinking it needs direct file access.
+- **Error Handling:** Gracefully handles file processing and API errors, providing user-friendly messages.
 - **Modern UI:** A clean, responsive design with a sleek dark theme, built with React and Tailwind CSS.
 
 ## Technologies Used
@@ -28,19 +30,23 @@ This project implements a conversational AI chatbot with the ability to upload a
 
 - **Python:** The core language for the backend logic.
 - **Azure Functions:** Serverless compute platform for hosting the backend API.
+- **FastAPI:** A modern, fast (high-performance) web framework for building the API endpoints within the Azure Function.
 - **Azure OpenAI Service:** Provides the large language model (LLM) capabilities.
-- **`openai` library:** Python client for interacting with Azure OpenAI.
+- **`openai` library (AsyncAzureOpenAI):** Python client for asynchronous interaction with Azure OpenAI.
 - **`PyMuPDF` (fitz):** For efficient PDF text and image extraction.
 - **`python-docx`:** For parsing and extracting content from DOCX files.
 - **`pytesseract` (with Tesseract-OCR):** For performing OCR on image content within documents.
-- **In-memory Storage:** Temporary storage for processed document chunks (for local development only).
+- **`starlette.concurrency.run_in_threadpool`:** Used to safely offload synchronous, blocking I/O operations in an asynchronous environment.
+- **In-memory Storage (`defaultdict`):** Temporarily stores processed document chunks for the duration of the local backend session. **Note:** This is for local development and demonstration purposes only. For production, persistent storage (e.g., Azure Blob Storage) is required.
 
 ## Project Structure
 
 ```
 MyChatProject/
 ├── chat-backend/             # Python Azure Function Backend
-│   ├── function_app.py       # Main Azure Function logic (API endpoints, OCR, chunking, LLM calls)
+│   ├── function_app.py       # Main Azure Function wrapper for FastAPI, handles ASGI & CORS
+│   ├── fastapi_app.py        # FastAPI application (API endpoints, OCR, chunking, LLM calls)
+│   ├── shared.py             # Helper functions for text chunking and file extraction (async)
 │   ├── host.json             # Azure Functions host configuration (e.g., routing prefix)
 │   ├── local.settings.json   # Local environment variables (API keys - IGNORED by Git)
 │   ├── requirements.txt      # Python dependencies
@@ -90,6 +96,7 @@ MyChatProject/
     ```bash
     pip install -r requirements.txt
     ```
+    (This `requirements.txt` should now pull in `fastapi`, `starlette` as dependencies of `azurefunctions.extensions.http.fastapi`, `openai`, `PyMuPDF`, `python-docx`, `Pillow`, `pytesseract`).
 5.  **Configure environment variables:**
     - Create a file named `local.settings.json` in the `chat-backend` directory (if it doesn't exist).
     - Populate it with your Azure OpenAI details:
@@ -107,7 +114,7 @@ MyChatProject/
       }
       ```
       **Important:** Replace `YOUR_AZURE_OPENAI_API_KEY`, `YOUR_AZURE_OPENAI_ENDPOINT`, and `YOUR_AZURE_OPENAI_DEPLOYMENT_NAME` with your actual values.
-    - Open `function_app.py` and ensure `pytesseract.pytesseract.tesseract_cmd` is correctly set to your Tesseract installation path:
+    - Open `shared.py` (and potentially `fastapi_app.py` if it was manually added there) and ensure `pytesseract.pytesseract.tesseract_cmd` is correctly set to your Tesseract installation path:
       ```python
       pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe' # Example
       ```
@@ -129,7 +136,7 @@ MyChatProject/
       <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
       ```
 
-### Running the Application
+## Running the Application
 
 1.  **Start the Backend (Azure Function):**
 
@@ -157,13 +164,14 @@ MyChatProject/
 2.  Use the chat input box to send messages to the AI.
 3.  To provide document context, drag and drop PDF or DOCX files onto the designated area, or click "click to browse" to select them.
 4.  Once files are uploaded (indicated by filename chips), ask questions that refer to their content (e.g., "Summarize the attached document", "What does this file say about X?").
-5.  Observe the AI's real-time, streaming responses.
+    - **Note:** The extracted content of all uploaded files will remain available for subsequent queries within the same backend session. You do not need to re-upload files to reference them again.
+5.  Observe the AI's real-time, streaming responses, appearing token-by-token.
 
 ## Future Improvements
 
-- **Advanced RAG (Retrieval Augmented Generation):** Replace the simple keyword-based retrieval with vector embeddings and a dedicated vector database (e.g., Azure Cognitive Search, Pinecone, ChromaDB) for more accurate and semantic context retrieval.
-- **Persistent File Storage:** Implement Azure Blob Storage to store uploaded files durably instead of in-memory for production readiness.
-- **User Authentication:** Add user login to manage chat history and uploaded files per user.
+- **Persistent File Storage:** **Crucially, implement Azure Blob Storage to store uploaded files and their processed chunks durably (along with a database for metadata like Azure Cosmos DB) instead of relying solely on in-memory storage.** This is essential for production readiness, scalability, and statelessness in a serverless environment.
+- **Advanced RAG (Retrieval Augmented Generation):** Replace the current keyword-based retrieval with vector embeddings and a dedicated vector database (e.g., Azure Cognitive Search, Pinecone, ChromaDB) for more accurate and semantic context retrieval.
+- **User Authentication:** Add user login to manage chat history and uploaded files per user securely.
 - **Chat History Persistence:** Store chat history in a database (e.g., Azure Cosmos DB, Azure SQL Database) for continuity across sessions.
 - **Scalable Backend:** Optimize the Azure Function for high-concurrency scenarios, potentially using Durable Functions for long-running file processing workflows.
 - **More File Types:** Extend support to other document types like TXT, CSV, image files (if not already handled by OCR).

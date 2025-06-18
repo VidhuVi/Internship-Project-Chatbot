@@ -1,4 +1,8 @@
 azure-functions
+azurefunctions-extensions-http-fastapi
+fastapi
+uvicorn
+python-multipart
 openai
 PyMuPDF
 python-docx
