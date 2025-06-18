@@ -301,6 +301,11 @@ function App() {
           </div>
         </div>
       </div>
+      <div className="footer">
+        <p>👋🏼 I AM A CHATBOT</p>
+        {/* <p>MADE WITH ❤️ BY VIDHU</p> */}
+        {/* <p>POWERED BY AZURE OPENAI</p> */}
+      </div>
     </div>
   );
 }

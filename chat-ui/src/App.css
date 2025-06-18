@@ -9,7 +9,7 @@ body {
 
 .App {
   display: flex;
-  justify-content: center;
+  justify-content: space-evenly;
   align-items: center;
   min-height: 100vh;
   background-color: #202123;
@@ -19,7 +19,7 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 768px; 
+  max-width: 800px; 
   height: 90vh;
   max-height: 800px;
   border-radius: 12px;
@@ -31,7 +31,7 @@ body {
 
 .messages-display {
   flex-grow: 1;
-  padding: 15px 20px;
+  padding:30px 30px 20px 30px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -57,8 +57,8 @@ body {
 
 .message.assistant {
   align-self: flex-start;
-  background-color: #444654; 
-  color: #ececec;
+  background-color: #4e2931; 
+  color: #ececec;                               
 }
 
 .input-area-container {
@@ -156,6 +156,7 @@ body {
   height: 40px;
   flex-shrink: 0; 
   margin-left: 8px;
+  margin-right: 4px;
   padding: 0; 
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
@@ -241,7 +242,7 @@ body {
   40% { transform: scale(1); opacity: 1; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 800px) {
   .chat-container {
     height: 100vh;
     border-radius: 0;
@@ -285,4 +286,27 @@ body {
 .messages-display {
    scrollbar-color: #4b5563 #1f2937;
    scrollbar-width: thin;
+}
+@media only screen and (min-width: 1100px) {
+  .footer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  row-gap: 10px;
+  justify-items: center;
+  bottom: 0;
+  width: 250px;
+  background-color: #343541; 
+  padding: 10px 20px;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: grey;
+}
+  }
+
+@media only screen and (max-width: 1099px) {
+  .footer {
+    display: none;
+  }
 }
