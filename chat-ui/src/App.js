@@ -1,31 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './App.css';
-
+import './App.css'; 
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFileRefs, setUploadedFileRefs] = useState([]);
+  const [uploadedFileRefs, setUploadedFileRefs] = useState([]); 
   const [isFileUploading, setIsFileUploading] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
-
-  const fileInputRef = useRef(null); 
+  const [isInputFocused, setIsInputFocused] = useState(false); 
+  const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; 
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [input]);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
   const addFiles = async (files) => {
     const allowedFiles = files.filter(file =>
       file.type === 'application/pdf' ||
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
-
     if (allowedFiles.length > 0) {
       setSelectedFiles(prevFiles => {
         const newFiles = [...prevFiles];
@@ -36,29 +39,24 @@ function App() {
         });
         return newFiles;
       });
-
       await uploadFilesToBackend(allowedFiles);
     }
   };
-
   const uploadFilesToBackend = async (filesToUpload) => {
     setIsFileUploading(true);
     const formData = new FormData();
     filesToUpload.forEach((file) => {
       formData.append("files", file);
     });
-
     try {
       const response = await fetch('http://localhost:7071/api/upload-file', {
         method: 'POST',
         body: formData,
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
-
       const data = await response.json();
       if (data.fileRefs && Array.isArray(data.fileRefs)) {
         setUploadedFileRefs(prevRefs => [...prevRefs, ...data.fileRefs]);
@@ -72,25 +70,39 @@ function App() {
     } catch (error) {
       console.error("Error uploading files to backend:", error);
       alert(`Error uploading files: ${error.message}`);
+      setSelectedFiles([]);
+      setUploadedFileRefs([]);
     } finally {
       setIsFileUploading(false);
     }
   };
-
   const handleFileSelect = (event) => {
     addFiles(Array.from(event.target.files));
   };
-
   const handleRemoveFile = (indexToRemove) => {
-    setSelectedFiles(prevFiles => {
-      const newSelectedFiles = prevFiles.filter((_, index) => index !== indexToRemove);
-      setUploadedFileRefs(newUploadedFileRefs => newUploadedFileRefs.filter((ref, index) => {
-        return !prevFiles[indexToRemove] || ref.name !== prevFiles[indexToRemove].name;
-      }));
-      return newSelectedFiles;
-    });
+      setSelectedFiles(prevSelectedFiles => {
+          const fileToRemove = prevSelectedFiles[indexToRemove];
+          const newSelectedFiles = prevSelectedFiles.filter((_, index) => index !== indexToRemove);
+          setUploadedFileRefs(prevUploadedRefs => {
+              const refIdToRemove = prevUploadedRefs.find(ref => ref.name === fileToRemove.name)?.id;
+              if (refIdToRemove) {
+                  return prevUploadedRefs.filter(ref => ref.id !== refIdToRemove);
+              } else {
+                  const newRefs = [];
+                  let removedOne = false;
+                  for (const ref of prevUploadedRefs) {
+                      if (!removedOne && ref.name === fileToRemove.name) {
+                          removedOne = true;
+                      } else {
+                          newRefs.push(ref);
+                      }
+                  }
+                  return newRefs;
+              }
+          });
+          return newSelectedFiles;
+      });
   };
-
   const handleDragOver = (event) => {
     event.preventDefault();
     setIsDragging(true);
@@ -99,20 +111,19 @@ function App() {
   const handleDragLeave = () => {
     setIsDragging(false);
   };
-
   const handleDrop = (event) => {
     event.preventDefault();
     setIsDragging(false);
     addFiles(Array.from(event.dataTransfer.files));
   };
-
   const handleSendMessage = async () => {
     if (input.trim() === '' && uploadedFileRefs.length === 0) return;
-
     setIsResponding(true);
-
     const userMessageText = input.trim();
     let displayMessageContent = userMessageText;
+    console.log("DEBUG: Before attachment logic:");
+    console.log("  uploadedFileRefs.length:", uploadedFileRefs.length);
+    console.log("  selectedFiles:", selectedFiles.map(f => f.name));
     if (uploadedFileRefs.length > 0) {
       const fileNames = selectedFiles.map(f => f.name).join(', ');
       displayMessageContent += (userMessageText ? "\n\n" : "") + `[Files attached: ${fileNames}]`;
@@ -120,24 +131,19 @@ function App() {
     const newUserMessage = { sender: 'user', text: displayMessageContent };
     const updatedMessagesAfterUser = [...messages, newUserMessage];
     setMessages(updatedMessagesAfterUser);
-
     setInput('');
-    setSelectedFiles([]);
-
+    setSelectedFiles([]); 
     const payload = {
       conversation: [
         { role: 'system', content: 'You are a helpful and friendly AI assistant. You answer questions concisely and professionally.' },
         ...updatedMessagesAfterUser.map(msg => ({ role: msg.sender === 'user' ? 'user' : 'assistant', content: msg.text }))
       ]
     };
-
     if (uploadedFileRefs.length > 0) {
       payload.fileRefs = uploadedFileRefs;
     }
-
     let currentAssistantMessage = { sender: 'assistant', text: '' };
     setMessages(prevMessages => [...prevMessages, currentAssistantMessage]);
-
     try {
       const response = await fetch('http://localhost:7071/api/chat', {
         method: 'POST',
@@ -146,23 +152,18 @@ function App() {
         },
         body: JSON.stringify(payload),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`HTTP error! status: ${response.status} - ${errorData.message || 'Unknown error'}`);
       }
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let accumulatedText = '';
-
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n');
-
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
@@ -174,7 +175,7 @@ function App() {
                   newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: accumulatedText };
                   return newMessages;
                 });
-                await new Promise(resolve => setTimeout(resolve, 70));
+                await new Promise(resolve => setTimeout(resolve, 30));
               }
             } catch (e) {
               console.error("Error parsing SSE data:", e, line);
@@ -192,61 +193,67 @@ function App() {
         return newMessages;
       });
     } finally {
-      setUploadedFileRefs([]);
-      setIsResponding(false);
+      setIsResponding(false); 
     }
   };
-
   const handleKeyPress = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey) { 
       handleSendMessage();
       event.preventDefault();
     }
   };
-
+  const handlePlusButtonClick = () => {
+    fileInputRef.current.click(); 
+  };
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-900 font-inter text-gray-100">
-      <div className="flex flex-col w-full max-w-xl h-[90vh] md:h-[700px] bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700">
-        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white shadow-md">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-square-text"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="13" x2="11" y1="11" y2="11"/><line x1="17" x2="11" y1="15" y2="15"/></svg>
-            ChatBot
-          </h1>
-        </div>
-        <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-gray-850 scrollbar-thumb-rounded scrollbar-track-rounded scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+    <div className="App"> {/* Main container, handled by App.css for full screen */}
+      <div className="chat-container"> {/* Main chat window */}
+        {/* Messages Display Area */}
+        <div className="messages-display scrollbar-thumb-rounded scrollbar-track-rounded scrollbar-thumb-gray-600 scrollbar-track-gray-800">
           {messages.map((msg, index) => (
             <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[80%] p-3 rounded-xl shadow-sm text-sm break-words leading-snug
-                  ${msg.sender === 'user'
-                    ? 'bg-blue-700 text-white rounded-br-md'
-                    : 'bg-gray-700 text-gray-200 rounded-bl-md'
-                  }`}
+                className={`message ${msg.sender === 'user' ? 'user' : 'assistant'}`}
               >
                 {msg.text}
               </div>
             </div>
           ))}
+          {/* "Thinking..." indicator for assistant */}
           {isResponding && messages[messages.length - 1]?.sender !== 'assistant' && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] p-3 rounded-xl shadow-sm text-sm break-words leading-snug bg-gray-700 text-gray-200 rounded-bl-md animate-pulse">
-                <span>Thinking...</span>
+              <div className="message loading-dots">
+                <span className="dot-animation"></span>
+                <span className="dot-animation"></span>
+                <span className="dot-animation"></span>
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} /> {/* Scroll to bottom reference */}
         </div>
+        {/* Input Area Container */}
         <div
-          className={`p-4 bg-gray-800 border-t border-gray-700 flex flex-col gap-2 ${isDragging ? 'border-blue-500 bg-gray-700' : ''}`}
+          className={`input-area-container ${isDragging ? 'border-blue-500 bg-gray-700' : ''}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div
-            className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors duration-200
-              ${selectedFiles.length > 0 ? 'border-blue-600 bg-gray-700' : 'border-gray-600 bg-gray-700 hover:bg-gray-750'}
-              ${isFileUploading ? 'animate-pulse bg-gray-600 border-blue-500' : ''}`}
-          >
+          {/* File Upload Tray (if files selected) */}
+          {selectedFiles.length > 0 && (
+            <div className="file-upload-tray">
+              {selectedFiles.map((file, index) => (
+                <span key={file.name + index} className="file-chip">
+                  {file.name}
+                  <button onClick={() => handleRemoveFile(index)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {/* Main Input Wrapper */}
+          <div className={`input-wrapper ${isInputFocused || input.length > 0 || selectedFiles.length > 0 ? 'active' : ''}`}>
+            {/* Hidden file input */}
             <input
               type="file"
               multiple
@@ -254,52 +261,47 @@ function App() {
               id="file-upload"
               accept=".pdf, .docx"
               className="hidden"
-              ref={fileInputRef} 
+              ref={fileInputRef}
             />
-            <label htmlFor="file-upload" className="flex items-center gap-2 font-semibold text-blue-400 cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
-              {isFileUploading ? 'Uploading files...' : 'Drag & Drop files here or click to browse'}
-            </label>
-            {selectedFiles.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2 mt-2">
-                {selectedFiles.map((file, index) => (
-                  <span key={file.name + index} className="flex items-center gap-1 bg-blue-700 text-blue-100 text-xs px-3 py-1 rounded-full border border-blue-600 shadow-sm">
-                    {file.name}
-                    <button onClick={() => handleRemoveFile(index)} className="ml-1 text-blue-300 hover:text-blue-100 rounded-full p-0.5 -mr-1 transition-colors duration-200">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            {/* Plus/Attachment Button */}
+            <button
+              onClick={handlePlusButtonClick}
+              disabled={isFileUploading || isResponding}
+              className="input-action-button"
+              title="Attach files"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+            </button>
+            {/* Main Textarea Input */}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+              placeholder="Message Azure OpenAI..."
+              disabled={isFileUploading || isResponding}
+              className="message-input-field"
+              rows={1} 
+            />
+            {/* Send Button */}
+            <button
+              onClick={handleSendMessage}
+              disabled={isFileUploading || isResponding || (input.trim() === '' && uploadedFileRefs.length === 0)}
+              className="input-action-button send-button"
+              title="Send message"
+            >
+              {isResponding ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-loader-2 animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+              )}
+            </button>
           </div>
-        </div>
-        <div className="p-4 border-t border-gray-700 bg-gray-800 flex items-center gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
-            disabled={isFileUploading || isResponding}
-            className="flex-1 px-4 py-2 border border-gray-600 bg-gray-700 text-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm placeholder:text-gray-400"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={isFileUploading || isResponding}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none h-10 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 shadow-md transform active:scale-95 duration-150 ease-in-out"
-          >
-            {isResponding ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-loader-2 animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-send"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M15 15 22 2"/></svg>
-            )}
-            <span className="ml-2">{isResponding ? 'Sending...' : 'Send'}</span>
-          </button>
         </div>
       </div>
     </div>
   );
 }
-
 export default App;
