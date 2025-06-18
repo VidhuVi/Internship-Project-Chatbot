@@ -6,15 +6,11 @@ from openai import AsyncAzureOpenAI
 from fastapi.middleware.cors import CORSMiddleware
 from collections import defaultdict
 import logging
-
 from starlette.concurrency import run_in_threadpool
 
-from shared import chunk_text, extract_text_from_pdf, extract_text_from_docx # Ensure these are async in shared.py
-
-logging.basicConfig(level=logging.INFO) # Set to INFO for clearer logs, use DEBUG for most verbose
-
+from shared import chunk_text, extract_text_from_pdf, extract_text_from_docx
+logging.basicConfig(level=logging.INFO)
 app = FastAPI(root_path="/api")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -22,12 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # --- GLOBAL IN-MEMORY FILE STORAGE ---
 file_storage = defaultdict(list)
 logging.info(f"fastapi_app.py: Global file_storage initialized or re-initialized. Current keys: {list(file_storage.keys())}")
-
-
 # --- Initialize Azure OpenAI Client at module level ---
 client: AsyncAzureOpenAI = None
 try:
@@ -42,36 +35,27 @@ try:
 except Exception as e:
     logging.error(f"Failed to initialize AsyncAzureOpenAI client at module level: {e}", exc_info=True)
     client = None
-
-
 # --- CHAT ENDPOINT ---
 @app.post("/chat")
 async def chat(request: Request):
     logging.info("--- /chat endpoint received request ---")
     logging.info(f"CHAT: Global file_storage keys at start of /chat: {list(file_storage.keys())}")
-
     body = await request.json()
     logging.info(f"CHAT: Request body received. Keys: {body.keys()}")
-
     conversation_history = body.get("conversation")
     received_file_refs = body.get("fileRefs", [])
     file_context_string = ""
-
     if not client:
         logging.error("CHAT: Azure OpenAI client is NOT initialized when /chat was called. Returning 500.")
         return JSONResponse(status_code=500, content={"message": "Backend service not ready. OpenAI client not initialized."})
-
     messages = list(conversation_history) 
-
     if received_file_refs:
         logging.info(f"CHAT: Received file references in /chat payload: {received_file_refs}")
-
         last_user_message_index = -1
         for i in range(len(messages) - 1, -1, -1):
             if messages[i]['role'] == 'user':
                 last_user_message_index = i
                 break
-
         if last_user_message_index != -1:
             original_user_content = messages[last_user_message_index]['content']
             user_query_cleaned = re.sub(r'\[Files attached:.*?\]', '', original_user_content).strip()
@@ -80,11 +64,8 @@ async def chat(request: Request):
             user_query = user_query_cleaned
         else:
             user_query = ""
-
         query_keywords = set(word.lower() for word in user_query.split() if len(word) > 2)
         logging.info(f"CHAT: Extracted query keywords (from cleaned query): {list(query_keywords)}")
-
-
         all_chunks = []
         for ref in received_file_refs:
             file_id = ref.get("id")
@@ -96,9 +77,8 @@ async def chat(request: Request):
                 logging.warning(f"CHAT: File ID {file_id} ({file_name}) NOT FOUND in file_storage during retrieval for /chat. Content will be missing.")
 
         logging.info(f"CHAT: Total chunks retrieved from storage for processing: {len(all_chunks)}")
-
         scored_chunks = []
-        if all_chunks: # Only proceed if chunks were actually retrieved
+        if all_chunks:
             for c in all_chunks:
                 score = sum(1 for kw in query_keywords if kw in c["content"].lower())
                 scored_chunks.append((score, c))
@@ -109,12 +89,10 @@ async def chat(request: Request):
                 logging.info(f"- Score: {score}, File: {chunk_obj['file_name']}, Chunk: '{chunk_obj['content'][:50]}...'")
         else:
             logging.info("CHAT: No chunks retrieved, skipping scoring and selection.")
-
         selected = []
         added_len = 0
         max_context_length = 3000
         top_k_chunks = 5
-
         for score, c in scored_chunks:
             if score > 0 and len(selected) < top_k_chunks:
                 block_header_footer_len = len(f"--- Document Context (from {c['file_name']}) ---\n\n--- End Context ---") + 20
@@ -133,21 +111,8 @@ async def chat(request: Request):
             elif score == 0 and len(query_keywords) > 0:
                 logging.info(f"CHAT: Skipping chunk (score 0). No more relevant chunks found based on keywords.")
                 break
-
         file_context_string = "\n\n".join(selected)
         logging.info(f"CHAT: Final file_context_string length: {len(file_context_string)} chars. Selected {len(selected)} chunks.")
-
-        # IMPORTANT: Clear chunks from in-memory storage *after* use for the current request
-        # This is done for memory management, assuming a file's context is only for one specific query.
-        # If you need context to persist for subsequent queries, you'd need a different strategy (e.g. database).
-        # for ref in received_file_refs:
-        #     file_id = ref.get('id')
-        #     if file_id in file_storage:
-        #         logging.info(f"CHAT: Deleting file_id {file_id} from file_storage after use for this chat request.")
-        #         del file_storage[file_id]
-        # logging.info(f"CHAT: Global file_storage keys after clearing for this request: {list(file_storage.keys())}")
-
-
     if file_context_string:
         messages.insert(0, {
             "role": "system",
@@ -170,7 +135,6 @@ async def chat(request: Request):
     except Exception as e:
         logging.error(f"CHAT: Error calling OpenAI API: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"message": f"Error communicating with OpenAI API: {str(e)}"})
-
     async def event_stream() -> AsyncGenerator[str, None]:
         logging.info("CHAT: Starting event_stream generator for true streaming.")
         yield "event: start\ndata: {}\n\n"
@@ -189,29 +153,22 @@ async def chat(request: Request):
 
     logging.info("CHAT: Returning StreamingResponse from /chat endpoint.")
     return StreamingResponse(event_stream(), media_type="text/event-stream")
-
 # --- UPLOAD FILE ENDPOINT ---
 @app.post("/upload-file")
 async def upload_file_endpoint(files: list[UploadFile] = File(...)):
     logging.info("--- /upload-file endpoint received request ---")
     logging.info(f"UPLOAD: Global file_storage keys at start of /upload-file: {list(file_storage.keys())}")
     file_refs = []
-
     if not client:
         logging.error("UPLOAD: Azure OpenAI client is not initialized. Returning 500.")
         return JSONResponse(status_code=500, content={"message": "Backend service not ready. OpenAI client not initialized."})
-
-
     for file in files:
         content_type = file.content_type
         file_name = file.filename
         file_id = str(uuid.uuid4())
-
         logging.info(f"UPLOAD: Processing file {file_name} (Type: {content_type}) with new ID: {file_id}")
-
         file_bytes = await file.read()
         stream = io.BytesIO(file_bytes)
-
         chunks = []
         try:
             if content_type == 'application/pdf':
@@ -224,14 +181,11 @@ async def upload_file_endpoint(files: list[UploadFile] = File(...)):
         except Exception as e:
             logging.error(f"UPLOAD: Error during text extraction for {file_name}: {e}", exc_info=True)
             return JSONResponse(status_code=500, content={"message": f"Error processing file {file_name}: {str(e)}"})
-
         num_stored_chunks = 0
-        # Ensure file_id key exists before appending
         if file_id not in file_storage:
             file_storage[file_id] = []
-
         for i, chunk_content in enumerate(chunks):
-            if chunk_content.strip(): # Only store non-empty chunks
+            if chunk_content.strip():
                 chunk_obj = {
                     "chunk_id": str(uuid.uuid4()),
                     "content": chunk_content,
@@ -241,15 +195,12 @@ async def upload_file_endpoint(files: list[UploadFile] = File(...)):
                 }
                 file_storage[file_id].append(chunk_obj)
                 num_stored_chunks += 1
-
         logging.info(f"UPLOAD: Extracted {len(chunks)} total chunks, stored {num_stored_chunks} non-empty chunks for {file_name} (ID: {file_id}).")
-
         file_refs.append({
             "id": file_id,
             "name": file_name,
             "num_chunks": num_stored_chunks
         })
-
     logging.info(f"UPLOAD: Global file_storage keys after processing ALL uploaded files: {list(file_storage.keys())}")
     logging.info("UPLOAD: Returning JSONResponse from /upload-file endpoint.")
     return JSONResponse(content={"message": "Files uploaded successfully.", "fileRefs": file_refs})
