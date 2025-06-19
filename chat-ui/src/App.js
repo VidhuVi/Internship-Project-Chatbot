@@ -124,7 +124,7 @@ function App() {
     console.log("DEBUG: Before attachment logic:");
     console.log("  uploadedFileRefs.length:", uploadedFileRefs.length);
     console.log("  selectedFiles:", selectedFiles.map(f => f.name));
-    if (uploadedFileRefs.length > 0) {
+    if (uploadedFileRefs.length > 0 && selectedFiles.length > 0) {
       const fileNames = selectedFiles.map(f => f.name).join(', ');
       displayMessageContent += (userMessageText ? "\n\n" : "") + `[Files attached: ${fileNames}]`;
     }
