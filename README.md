@@ -1,6 +1,6 @@
 # AI Chatbot with Document Understanding and Streaming Responses
 
-This project implements a conversational AI chatbot with the ability to upload and process PDF and DOCX documents. It leverages Azure OpenAI for generating responses and provides a real-time, streaming chat experience. The frontend is built with React and styled with Tailwind CSS, while the backend is a Python Azure Function.
+This is a project that I did as part of an internship for Wizr AI solutions, Kochi. The project implements a conversational AI chatbot with the ability to upload and process PDF and DOCX documents. It leverages Azure OpenAI for generating responses and provides a real-time, streaming chat experience. The frontend is built with React and styled with Tailwind CSS, while the backend is a Python Azure Function.
 
 ## Features
 
